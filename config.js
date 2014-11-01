@@ -10,7 +10,7 @@ config = {
     // When running Ghost in the wild, use the production environment
     // Configure your URL and mail settings here
     production: {
-        url: 'https://everydaydelicious.herokuapp.com/',
+        url: 'https://www.everydaydelicious.life/',
         mail: {
             transport: 'SMTP',
             options: {
