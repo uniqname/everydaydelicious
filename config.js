@@ -22,19 +22,23 @@ config = {
             }
         },
         database: {
-            client: 'sqlite3',
+            client: 'postgres',
             connection: {
-                filename: path.join(__dirname, '/content/data/ghost.db')
+                  host: 'ec2-23-23-183-5.compute-1.amazonaws.com',
+                  user: 'oyztpsovfhctec',
+                  password: 'd0n6aFTrB1E-pJBGwOEltbzfUQ',
+                  database: 'd4r055phr96dpd',
+                  port: '5432'
             },
-            debug: false
         },
 
         server: {
             // Host to be passed to node's `net.Server#listen()`
-            host: '127.0.0.1',
+            host: '0.0.0.0',
             // Port to be passed to node's `net.Server#listen()`, for iisnode set this to `process.env.PORT`
-            port: '2368'
-        }
+            port: process.env.PORT
+        },
+        fileStorage: false
     },
 
     // ### Development **(default)**
