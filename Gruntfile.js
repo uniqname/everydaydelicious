@@ -117,17 +117,8 @@ var _              = require('lodash'),
                 },
                 livereload: {
                     files: [
-<<<<<<< HEAD
                         'content/themes/casper/assets/css/*.css',
                         'content/themes/casper/assets/js/*.js',
-=======
-                        // 'content/themes/casper/assets/css/*.css',
-                        // 'content/themes/casper/assets/js/*.js',
-
-                        'content/themes/Perfetta/assets/css/*.css',
-                        'content/themes/Perfetta/assets/js/*.js',
-
->>>>>>> 2127375ec794372179a6d373645a43ff1208dc53
                         'core/client/assets/css/*.css',
                         'core/built/scripts/*.js'
                     ],
