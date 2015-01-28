@@ -9,11 +9,12 @@ define("ghost/assets/lib/touch-editor",
         TouchEditor = function (el, options) {
             /*jshint unused:false*/
             this.textarea = el;
-            this.win = { document : this.textarea };
+            this.win = {document: this.textarea};
             this.ready = true;
             this.wrapping = document.createElement('div');
 
             var textareaParent = this.textarea.parentNode;
+
             this.wrapping.appendChild(this.textarea);
             textareaParent.appendChild(this.wrapping);
 
@@ -37,14 +38,14 @@ define("ghost/assets/lib/touch-editor",
             },
             focus: noop,
             getCursor: function () {
-                return { line: 0, ch: 0 };
+                return {line: 0, ch: 0};
             },
             setCursor: noop,
             currentLine: function () {
                 return 0;
             },
             cursorPosition: function () {
-                return { character: 0 };
+                return {character: 0};
             },
             addMarkdown: noop,
             nthLine: noop,

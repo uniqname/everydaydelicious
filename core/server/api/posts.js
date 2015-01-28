@@ -8,13 +8,14 @@ var Promise         = require('bluebird'),
     utils           = require('./utils'),
 
     docName         = 'posts',
-    allowedIncludes = ['created_by', 'updated_by', 'published_by', 'author', 'tags', 'fields'],
+    allowedIncludes = ['created_by', 'updated_by', 'published_by', 'author', 'tags', 'fields', 'next', 'previous'],
     posts;
 
 // ## Helpers
 function prepareInclude(include) {
     var index;
 
+    include = include || '';
     include = _.intersection(include.split(','), allowedIncludes);
     index = include.indexOf('author');
 

@@ -1,6 +1,6 @@
 { "name": "validator",
   "description": "String validation and sanitization",
-  "version": "3.4.0",
+  "version": "3.26.0",
   "homepage": "http://github.com/chriso/validator.js",
   "keywords": [
     "validator", "validation", "validate", "sanitization",
@@ -15,16 +15,19 @@
     "type": "git",
     "url": "http://github.com/chriso/validator.js.git"
   },
-  "scripts": {
-    "test": "./node_modules/.bin/_mocha --reporter spec"
-  },
   "devDependencies": {
     "mocha": "latest",
     "istanbul": "latest",
     "jshint": "latest",
-    "uglify-js": "latest"
+    "uglify-js": "latest",
+    "coveralls": "latest",
+    "contextify": "latest"
   },
-  "engines": { "node" : ">= 0.8" },
+  "scripts": {
+    "test": "./node_modules/.bin/_mocha --reporter spec",
+    "coveralls": "istanbul cover _mocha --report lcovonly -- -R spec && cat ./coverage/lcov.info | coveralls && rm -rf ./coverage"
+  },
+  "engines": { "node" : ">= 0.10" },
   "licenses": [
     { "type": "MIT"
     , "url": "http://github.com/chriso/validator.js/raw/master/LICENSE" }

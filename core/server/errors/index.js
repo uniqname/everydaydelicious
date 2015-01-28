@@ -24,7 +24,7 @@ var _                          = require('lodash'),
 colors.setTheme({silly: 'rainbow'});
 
 // Shim right now to deal with circular dependencies.
-// @TODO: remove circular dependency
+// @TODO(hswolff): remove circular dependency and lazy require.
 function getConfigModule() {
     if (!config) {
         config = require('../config');
@@ -107,7 +107,13 @@ errors = {
 
         stack = err ? err.stack : null;
 
-        err = _.isString(err) ? err : (_.isObject(err) ? err.message : 'An unknown error occurred.');
+        if (!_.isString(err)) {
+            if (_.isObject(err) && _.isString(err.message)) {
+                err = err.message;
+            } else {
+                err = 'An unknown error occurred.';
+            }
+        }
 
         // Overwrite error to provide information that this is probably a permission problem
         // TODO: https://github.com/TryGhost/Ghost/issues/3687
@@ -184,6 +190,15 @@ errors = {
         }
 
         if (error.type) {
+            return this.rejectError(error);
+        }
+
+        // handle database errors
+        if (error.code && (error.errno || error.detail)) {
+            error.db_error_code = error.code;
+            error.type = 'DatabaseError';
+            error.code = 500;
+
             return this.rejectError(error);
         }
 

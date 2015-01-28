@@ -8,6 +8,7 @@
 var _              = require('lodash'),
     colors         = require('colors'),
     fs             = require('fs-extra'),
+    moment         = require('moment'),
     getTopContribs = require('top-gh-contribs'),
     path           = require('path'),
     Promise        = require('bluebird'),
@@ -17,6 +18,7 @@ var _              = require('lodash'),
     cwd            = process.cwd().replace(/( |\(|\))/g, escapeChar + '$1'),
     buildDirectory = path.resolve(cwd, '.build'),
     distDirectory  = path.resolve(cwd, '.dist'),
+    mochaPath      = path.resolve(cwd + '/node_modules/grunt-mocha-cli/node_modules/mocha/bin/mocha'),
 
     // ## Build File Patterns
     // A list of files and patterns to include when creating a release zip.
@@ -59,11 +61,19 @@ var _              = require('lodash'),
                 ]
             }
         },
+        clientTests: {
+            files: {
+                src: [
+                    'core/test/client/**/*.js'
+                ]
+            }
+        },
         // Linting files for test code.
         test: {
             files: {
                 src: [
-                    'core/test/**/*.js'
+                    'core/test/**/*.js',
+                    '!core/test/client/**/*.js'
                 ]
             }
         }
@@ -106,8 +116,8 @@ var _              = require('lodash'),
                     tasks: ['emberTemplates:dev']
                 },
                 ember: {
-                    files: ['core/client/**/*.js'],
-                    tasks: ['clean:tmp', 'transpile', 'concat_sourcemap:dev']
+                    files: ['core/client/**/*.js', 'core/test/client/**/*.js'],
+                    tasks: ['clean:tmp', 'transpile', 'concat_sourcemap:dev', 'concat_sourcemap:tests']
                 },
                 sass: {
                     files: [
@@ -169,6 +179,11 @@ var _              = require('lodash'),
                             jshintrc: 'core/client/.jshintrc'
                         }
                     },
+                    clientTests: {
+                        options: {
+                            jshintrc: 'core/test/client/.jshintrc'
+                        }
+                    },
                     test: {
                         options: {
                             jshintrc: 'core/test/.jshintrc'
@@ -189,7 +204,16 @@ var _              = require('lodash'),
                     },
                     client: {
                         options: {
-                            config: '.jscsrc'
+                            config: '.jscsrc',
+                            esnext: true,
+                            disallowObjectController: true
+                        }
+                    },
+                    clientTests: {
+                        options: {
+                            config: '.jscsrc',
+                            esnext: true,
+                            disallowObjectController: true
                         }
                     },
                     test: {
@@ -198,12 +222,6 @@ var _              = require('lodash'),
                         }
                     }
                 }, lintFiles);
-
-                // JSCS depends on Esprima which doesn't yet support ES6 module
-                // syntax.  As such we cannot run JSCS on the client code yet.
-                // Related JSCS issue: https://github.com/jscs-dev/node-jscs/issues/561
-                // @TODO(hswolff): remove this once JSCS supports ES6.
-                delete jscsConfig.client;
 
                 return jscsConfig;
             })(),
@@ -302,14 +320,26 @@ var _              = require('lodash'),
                     }
                 },
 
+
+                testem: {
+                    command: path.resolve(cwd + '/node_modules/.bin/testem ci -f core/test/client/testem.json'),
+                    options: {
+                        stdout: true,
+                        stdin: false
+                    }
+                },
+
+                test: {
+                    command: function (test) {
+                        return 'node ' + mochaPath  + ' --timeout=15000 --ui=bdd --reporter=spec core/test/' + test;
+                    }
+                },
+
                 // #### Generate coverage report
                 // See the `grunt test-coverage` task in the section on [Testing](#testing) for more information.
                 coverage: {
-                    command: path.resolve(cwd  + '/node_modules/mocha/bin/mocha  --timeout 15000 --reporter' +
-                    ' html-cov > coverage.html ./core/test/blanket_coverage.js'),
-                    execOptions: {
-                        env: 'NODE_ENV=' + process.env.NODE_ENV
-                    }
+                    command: 'node ' + mochaPath + ' --timeout 15000 --reporter html-cov > coverage.html ' +
+                    path.resolve(cwd + '/core/test/blanket_coverage.js')
                 }
             },
 
@@ -318,7 +348,8 @@ var _              = require('lodash'),
             sass: {
                 compress: {
                     options: {
-                        style: 'compressed',
+
+                        outputStyle: 'nested', // TODO: Set back to 'compressed' working correctly with our dependencies
                         sourceMap: true
                     },
                     files: [
@@ -394,6 +425,18 @@ var _              = require('lodash'),
                         src: ['**/*.js', '!loader.js', '!config-*.js'],
                         dest: '.tmp/ember-transpiled/'
                     }]
+                },
+                tests: {
+                    type: 'amd',
+                    moduleName: function (path) {
+                        return 'ghost/tests/' + path;
+                    },
+                    files: [{
+                        expand: true,
+                        cwd: 'core/test/client/',
+                        src: ['**/*.js'],
+                        dest: '.tmp/ember-tests-transpiled/'
+                    }]
                 }
             },
 
@@ -403,6 +446,13 @@ var _              = require('lodash'),
                 dev: {
                     src: ['.tmp/ember-transpiled/**/*.js', 'core/client/loader.js'],
                     dest: 'core/built/scripts/ghost-dev.js',
+                    options: {
+                        sourcesContent: true
+                    }
+                },
+                tests: {
+                    src: ['.tmp/ember-tests-transpiled/**/*.js'],
+                    dest: 'core/built/scripts/ghost-tests.js',
                     options: {
                         sourcesContent: true
                     }
@@ -523,7 +573,6 @@ var _              = require('lodash'),
                     src: [
                         'bower_components/loader.js/loader.js',
                         'bower_components/jquery/dist/jquery.js',
-                        'bower_components/lodash/dist/lodash.js',
                         'bower_components/handlebars/handlebars.js',
                         'bower_components/ember/ember.js',
                         'bower_components/ember-data/ember-data.js',
@@ -535,7 +584,7 @@ var _              = require('lodash'),
                         'bower_components/codemirror/addon/mode/overlay.js',
                         'bower_components/codemirror/mode/markdown/markdown.js',
                         'bower_components/codemirror/mode/gfm/gfm.js',
-                        'bower_components/showdown/src/showdown.js',
+                        'bower_components/showdown-ghost/src/showdown.js',
                         'bower_components/moment/moment.js',
                         'bower_components/keymaster/keymaster.js',
                         'bower_components/device/lib/device.js',
@@ -549,7 +598,9 @@ var _              = require('lodash'),
                         'bower_components/nanoscroller/bin/javascripts/jquery.nanoscroller.js',
 
                         'core/shared/lib/showdown/extensions/ghostimagepreview.js',
-                        'core/shared/lib/showdown/extensions/ghostgfm.js'
+                        'core/shared/lib/showdown/extensions/ghostgfm.js',
+                        'core/shared/lib/showdown/extensions/ghostfootnotes.js',
+                        'core/shared/lib/showdown/extensions/ghosthighlight.js'
                     ]
                 },
 
@@ -559,7 +610,6 @@ var _              = require('lodash'),
                     src: [
                         'bower_components/loader.js/loader.js',
                         'bower_components/jquery/dist/jquery.js',
-                        'bower_components/lodash/dist/lodash.js',
                         'bower_components/handlebars/handlebars.runtime.js',
                         'bower_components/ember/ember.prod.js',
                         'bower_components/ember-data/ember-data.prod.js',
@@ -571,7 +621,7 @@ var _              = require('lodash'),
                         'bower_components/codemirror/addon/mode/overlay.js',
                         'bower_components/codemirror/mode/markdown/markdown.js',
                         'bower_components/codemirror/mode/gfm/gfm.js',
-                        'bower_components/showdown/src/showdown.js',
+                        'bower_components/showdown-ghost/src/showdown.js',
                         'bower_components/moment/moment.js',
                         'bower_components/keymaster/keymaster.js',
                         'bower_components/device/lib/device.js',
@@ -585,7 +635,9 @@ var _              = require('lodash'),
                         'bower_components/nanoscroller/bin/javascripts/jquery.nanoscroller.js',
 
                         'core/shared/lib/showdown/extensions/ghostimagepreview.js',
-                        'core/shared/lib/showdown/extensions/ghostgfm.js'
+                        'core/shared/lib/showdown/extensions/ghostgfm.js',
+                        'core/shared/lib/showdown/extensions/ghostfootnotes.js',
+                        'core/shared/lib/showdown/extensions/ghosthighlight.js'
                     ]
                 }
             },
@@ -635,12 +687,12 @@ var _              = require('lodash'),
         // Custom test runner for our Casper.js functional tests
         // This really ought to be refactored into a separate grunt task module
         grunt.registerTask('spawnCasperJS', function (target) {
-            target = _.contains(['client', 'frontend', 'setup'], target) ? target + '/' : undefined;
+            target = _.contains(['client', 'setup'], target) ? target + '/' : undefined;
 
             var done = this.async(),
                 options = ['host', 'noPort', 'port', 'email', 'password'],
                 args = ['test']
-                    .concat(grunt.option('target') || target || ['client/', 'frontend/'])
+                    .concat(grunt.option('target') || target || ['client/'])
                     .concat(['--includes=base.js', '--log-level=debug', '--port=2369']);
 
             // Forward parameters from grunt to casperjs
@@ -755,6 +807,14 @@ var _              = require('lodash'),
             });
         });
 
+        grunt.registerTask('test', function (test) {
+            if (!test) {
+                grunt.log.write('no test provided');
+            }
+
+            grunt.task.run('setTestEnv', 'shell:test:' + test);
+        });
+
         // ### Validate
         // **Main testing task**
         //
@@ -765,7 +825,7 @@ var _              = require('lodash'),
         //
         // `grunt validate` is called by `npm test` and is used by Travis.
         grunt.registerTask('validate', 'Run tests and lint code',
-            ['init', 'test']);
+            ['init', 'test-all']);
 
         // ### Test
         // **Main testing task**
@@ -775,8 +835,8 @@ var _              = require('lodash'),
         // `grunt test` runs jshint and jscs as well as the 4 test suites. See the individual sub tasks below for
         // details of each of the test suites.
         //
-        grunt.registerTask('test', 'Run tests and lint code',
-            ['jshint', 'jscs', 'test-routes', 'test-module', 'test-unit', 'test-integration', 'test-functional']);
+        grunt.registerTask('test-all', 'Run tests and lint code',
+            ['jshint', 'jscs', 'test-routes', 'test-module', 'test-unit', 'test-integration', 'test-functional', 'shell:testem']);
 
         // ### Lint
         //
@@ -796,7 +856,7 @@ var _              = require('lodash'),
         //
         // `NODE_ENV=testing mocha --timeout=15000 --ui=bdd --reporter=spec core/test/unit/config_spec.js`
         //
-        // Unit tests are run with [mocha](http://visionmedia.github.io/mocha/) using
+        // Unit tests are run with [mocha](http://mochajs.org/) using
         // [should](https://github.com/visionmedia/should.js) to describe the tests in a highly readable style.
         // Unit tests do **not** touch the database.
         // A coverage report can be generated for these tests using the `grunt test-coverage` task.
@@ -814,7 +874,7 @@ var _              = require('lodash'),
         //
         // `NODE_ENV=testing grunt mochacli:api`
         //
-        // Integration tests are run with [mocha](http://visionmedia.github.io/mocha/) using
+        // Integration tests are run with [mocha](http://mochajs.org/) using
         // [should](https://github.com/visionmedia/should.js) to describe the tests in a highly readable style.
         // Integration tests are different to the unit tests because they make requests to the database.
         //
@@ -840,7 +900,7 @@ var _              = require('lodash'),
         //
         // `NODE_ENV=testing mocha --timeout=15000 --ui=bdd --reporter=spec core/test/functional/routes/admin_test.js`
         //
-        // Route tests are run with [mocha](http://visionmedia.github.io/mocha/) using
+        // Route tests are run with [mocha](http://mochajs.org/) using
         // [should](https://github.com/visionmedia/should.js) and [supertest](https://github.com/visionmedia/supertest)
         // to describe and create the tests.
         //
@@ -941,7 +1001,7 @@ var _              = require('lodash'),
         // ### Ember Build *(Utility Task)*
         // All tasks related to building the Ember client code including transpiling ES6 modules and building templates
         grunt.registerTask('emberBuildDev', 'Build Ember JS & templates for development',
-            ['clean:tmp', 'buildAboutPage', 'emberTemplates:dev', 'transpile', 'concat_sourcemap:dev']);
+            ['clean:tmp', 'buildAboutPage', 'emberTemplates:dev', 'transpile', 'concat_sourcemap:dev', 'concat_sourcemap:tests']);
 
         // ### Ember Build *(Utility Task)*
         // All tasks related to building the Ember client code including transpiling ES6 modules and building templates
@@ -966,7 +1026,9 @@ var _              = require('lodash'),
         grunt.registerTask('buildAboutPage', 'Compile assets for the About Ghost page', function () {
             var done = this.async(),
                 templatePath = 'core/client/templates/-contributors.hbs',
-                ninetyDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 90);
+                imagePath = 'core/client/assets/img/contributors/',
+                ninetyDaysAgo = Date.now() - (1000 * 60 * 60 * 24 * 90),
+                oauthKey = process.env.GITHUB_OAUTH_KEY;
 
             if (fs.existsSync(templatePath) && !grunt.option('force')) {
                 grunt.log.writeln('Contributors template already exists.');
@@ -975,15 +1037,30 @@ var _              = require('lodash'),
             }
 
             grunt.verbose.writeln('Downloading release and contributor information from GitHub');
-            getTopContribs({
-                user: 'tryghost',
-                repo: 'ghost',
-                releaseDate: ninetyDaysAgo,
-                count: 20
-            }).then(function makeContributorTemplate(contributors) {
-                var contributorTemplate = '<li>\n\t<a href="<%githubUrl%>" title="<%name%>">\n' +
-                    '\t\t<img src="{{gh-path "admin" "/img/contributors"}}/<%name%>" alt="<%name%>">\n' +
-                    '\t</a>\n</li>';
+
+            return Promise.join(
+                Promise.promisify(fs.mkdirs)(imagePath),
+                getTopContribs({
+                    user: 'tryghost',
+                    repo: 'ghost',
+                    oauthKey: oauthKey,
+                    releaseDate: ninetyDaysAgo,
+                    count: 20
+                })
+            ).then(function (results) {
+                var contributors = results[1],
+                    contributorTemplate = '<li>\n    <a href="<%githubUrl%>" title="<%name%>">\n' +
+                    '        <img src="{{gh-path "admin" "/img/contributors"}}/<%name%>" alt="<%name%>">\n' +
+                    '    </a>\n</li>',
+
+                    downloadImagePromise = function (url, name) {
+                        return new Promise(function (resolve, reject) {
+                            request(url)
+                            .pipe(fs.createWriteStream(imagePath + name))
+                            .on('close', resolve)
+                            .on('error', reject);
+                        });
+                    };
 
                 grunt.verbose.writeln('Creating contributors template.');
                 grunt.file.write(templatePath,
@@ -994,25 +1071,24 @@ var _              = require('lodash'),
                             .replace(/<%name%>/g, contributor.name);
                     }).join('\n')
                 );
+
                 grunt.verbose.writeln('Downloading images for top contributors');
-                return Promise.promisify(fs.mkdirs)('core/client/assets/img/contributors').then(function () {
-                    return contributors;
-                });
-            }).then(function downloadContributorImages(contributors) {
-                var downloadImagePromise = function (url, name) {
-                    return new Promise(function (resolve, reject) {
-                        request(url)
-                        .pipe(fs.createWriteStream('core/client/assets/img/contributors/' + name))
-                        .on('close', resolve)
-                        .on('error', reject);
-                    });
-                };
                 return Promise.all(_.map(contributors, function (contributor) {
                     return downloadImagePromise(contributor.avatarUrl + '&s=60', contributor.name);
                 }));
-            }).catch(function (error) {
+            }).then(done).catch(function (error) {
                 grunt.log.error(error);
-            }).finally(done);
+
+                if (error.http_status) {
+                    grunt.log.writeln('GitHub API request returned status: ' + error.http_status);
+                }
+
+                if (error.ratelimit_limit) {
+                    grunt.log.writeln('Rate limit data: limit: %d, remaining: %d, reset: %s', error.ratelimit_limit, error.ratelimit_remaining, moment.unix(error.ratelimit_reset).fromNow());
+                }
+
+                done(false);
+            });
         });
         // ### Init assets
         // `grunt init` - will run an initial asset build for you

@@ -6,7 +6,7 @@
     Ember = require('ember');
   }
 
-Ember.libraries.register('Ember Simple Auth Testing', '0.6.6');
+Ember.libraries.register('Ember Simple Auth Testing', '0.7.2');
 
 define("simple-auth-testing/authenticators/test", 
   ["simple-auth/authenticators/base","exports"],
@@ -65,6 +65,11 @@ define("simple-auth-testing/test-helpers",
         return wait();
       });
 
+      Ember.Test.registerHelper('currentSession', function(app) {
+        var session = app.__container__.lookup(Configuration.session);
+        return session;
+      });
+
       Ember.Test.registerAsyncHelper('invalidateSession', function(app) {
         var session = app.__container__.lookup(Configuration.session);
         if (session.get('isAuthenticated')) {
@@ -76,4 +81,4 @@ define("simple-auth-testing/test-helpers",
 
     __exports__["default"] = testHelpers;
   });
-})((typeof global !== 'undefined') ? global : window);
+})(this);
